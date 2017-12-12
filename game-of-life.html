@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>game of life</title>
+</head>
+<body>
+<button onclick="running=true">start</button><button onclick="running=false">stop</button>
+<canvas id="canvas" width="1920" height="1200"></canvas>
+<script type="text/javascript">
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const cellSize = 20;
+    const fps = 20;
+    let running = false;
+
+    // TODO: make it faster by write new Cells collection (array is insuffiecient due constant neccessity to check, if cell exists)
+    let cells = [new Cell(9,10), new Cell(10,10), new Cell(11,10), new Cell(11,9), new Cell(10,8)];
+
+    const isCell = (x,y,alive) => {
+        let isCell = false;
+        cells.forEach((cell) => {
+            if(cell.x === x && cell.y === y && (alive === undefined || cell.alive === alive)) {
+                isCell = true;
+            }
+        });
+
+        return isCell;
+    }
+
+    const addDeadCells = (cell) => {
+        const cx = cell.x;
+        const cy = cell.y;
+
+        if(cell.alive) {
+            [cx-1,cx,cx+1].forEach((x) => {
+                [cy-1,cy,cy+1].forEach((y) => {
+                    if( !(cx===x && cy===y) && !(isCell(x, y)) ) 
+                        cells.push(new Cell(x,y,false));
+                });
+            });
+        }
+    }
+
+    function Cell(x,y,alive = true) {
+        this.x = x;
+        this.y = y;
+        this.alive = alive;
+    }
+
+    const getNeighbourCellsCount = (cell) => {
+        const cx = cell.x;
+        const cy = cell.y;
+
+        let count = 0;
+
+        [cx-1,cx,cx+1].forEach((x) => {
+            [cy-1,cy,cy+1].forEach((y) => {
+                if( !(cx===x && cy===y) && (isCell(x, y, true)) )
+                    count++;
+            });
+        });
+        
+        return count;
+    }
+   
+    const drawCells = () => {
+        // draw
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        cells.forEach((cell) => {
+            ctx.fillStyle = cell.alive ? '#000' : '#eee';
+            ctx.fillRect(cell.x*cellSize, cell.y*cellSize, cellSize-2, cellSize-2);
+        });
+    }
+
+    setInterval(() => {
+
+        drawCells();        
+
+        if(!running) {
+            return;
+        }
+
+        cells.forEach((cell) => addDeadCells(cell));
+        cells = cells.filter((cell) => {
+            return cell.alive || !(!cell.alive && getNeighbourCellsCount(cell) === 0);
+        });
+
+        // resolve transitions
+        const transitions = cells.map((cell) => {
+            const n = getNeighbourCellsCount(cell)
+
+            return cell.alive ?
+                [!(n < 2 || n > 3), cell] :
+                [n === 3, cell]
+                ;
+        });
+
+        // apply transitions
+        transitions.forEach((transition) => transition[1].alive = transition[0]);
+
+    }, 1000 / fps);
+
+    document.getElementById("canvas").addEventListener("mousedown", (ev) => {
+        if(running) { // drawing mode disabled when simulation is running
+            return;
+        }
+
+        var canvas = document.getElementById("canvas");
+
+        var x = Math.floor( (event.x - canvas.offsetLeft) / cellSize );
+        var y = Math.floor( (event.y - canvas.offsetTop) / cellSize );
+
+        const cell = new Cell(x,y);
+        cells.push(cell);
+        
+        ctx.fillStyle = cell.alive ? '#000' : '#eee';
+        ctx.fillRect(cell.x*cellSize, cell.y*cellSize, cellSize-2, cellSize-2);
+    });
+
+
+</script>
+</body>
+</html>
