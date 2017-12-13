@@ -4,48 +4,131 @@
     <title>game of life</title>
 </head>
 <body>
-<button onclick="running=true">start</button><button onclick="running=false">stop</button>
-<canvas id="canvas" width="1920" height="1200"></canvas>
+<div style="margin: 5px; padding: 5px;">
+
+<button onclick="running=true">start</button>
+<button onclick="running=false">stop</button>
+<button onclick="randomlyFillCanvasWithCells()">random fill</button>
+
+<i>Cells: </i><small id="cellsSize">0</small>
+<i>FPS: </i><small id="fps">0</small>
+</div>
+<br />
+<canvas id="canvas" width="1600" height="900" style="border: solid 1px black;"></canvas>
 <script type="text/javascript">
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const cellSize = 20;
-    const fps = 20;
+    const cellSize = 7;
+    const fpsMax = 40;
     let running = false;
+    let boundaryReserve = 10;
 
-    // TODO: make it faster by write new Cells collection (array is insuffiecient due constant neccessity to check, if cell exists)
-    let cells = [new Cell(9,10), new Cell(10,10), new Cell(11,10), new Cell(11,9), new Cell(10,8)];
-
-    const isCell = (x,y,alive) => {
-        let isCell = false;
-        cells.forEach((cell) => {
-            if(cell.x === x && cell.y === y && (alive === undefined || cell.alive === alive)) {
-                isCell = true;
-            }
-        });
-
-        return isCell;
-    }
-
-    const addDeadCells = (cell) => {
-        const cx = cell.x;
-        const cy = cell.y;
-
-        if(cell.alive) {
-            [cx-1,cx,cx+1].forEach((x) => {
-                [cy-1,cy,cy+1].forEach((y) => {
-                    if( !(cx===x && cy===y) && !(isCell(x, y)) ) 
-                        cells.push(new Cell(x,y,false));
-                });
-            });
-        }
-    }
-
-    function Cell(x,y,alive = true) {
+    let Cell = function(x, y, alive = true) {
         this.x = x;
         this.y = y;
         this.alive = alive;
     }
+
+    let Cells = function() {
+        this._map = {};
+        this._size = 0;
+
+        this.add = function(x,y,alive) {
+            if(!this.exists(x,y)) {
+                this._size++;    
+            }
+            this._map[x+'.'+y]= new Cell(x,y,alive);
+        }
+
+        this.exists = function(x,y) {
+            return !!this._map[x+'.'+y];
+        }
+
+        this.get = function(x,y) {
+            return this._map[x+'.'+y];
+        }
+
+        this.remove = function(x,y) {
+            if(this.exists(x,y)) {
+                delete this._map[x+'.'+y];
+                this._size--;
+            }
+        }
+
+        this.size = function() {
+            return this._size;
+        }
+
+        this.keys = function() {
+            let keys = [];
+            for(let key in this._map){
+              if(this._map.hasOwnProperty(key)){
+                keys.push(key);
+              }
+            }
+            return keys;
+        }
+
+        this.values = function() {
+            let values = [];
+            for(let key in this._map){
+              if(this._map.hasOwnProperty(key)){
+                values.push(this._map[key]);
+              }
+            }
+
+            return values;
+        }
+
+        this.addDeadCells = () => {
+            this.values().forEach((cell) => {
+                // off the grid
+                if(cell.x < 0-boundaryReserve || cell.y < 0-boundaryReserve || cell.x > (canvas.width/cellSize)+boundaryReserve || cell.y > (canvas.height/cellSize)+boundaryReserve) {
+                    cells.remove(cell.x,cell.y);
+                    return;
+                }
+
+                // surround alive cells with dead cells
+                if (cell.alive) {
+                    [cell.x - 1, cell.x, cell.x + 1].forEach((x) => {
+                        [cell.y - 1, cell.y, cell.y + 1].forEach((y) => {
+                            if (!this.exists(x,y) && !(cell.x === x && cell.y === y))
+                                cells.add(x, y, false);
+                        });
+                    });
+                } else {
+                    // dispose of abandoned dead cells
+                    if(getNeighbourCellsCount(cell) === 0) {
+                        cells.remove(cell.x,cell.y);
+                    }
+                }   
+            });
+        }
+
+        this.reset = () => {
+            this._map = {};
+            this._size = 0;
+        }
+    }
+
+    let cells = new Cells();
+
+    cells.add(9, 10);
+    cells.add(10, 10);
+    cells.add(11, 10);
+    cells.add(11, 9);
+    cells.add(10, 8);
+
+    /*console.log(cells);
+    console.log(cells.size());
+    console.log(cells.exists(10,10));
+    console.log(cells.keys());
+    console.log(cells.values());
+    console.log(cells.get(10,10).alive);
+    cells.get(10,10).alive = false;
+    console.log(cells.get(10,10).alive);
+    console.log(cells.remove(10,10));
+    console.log(cells.exists(10,10));*/
 
     const getNeighbourCellsCount = (cell) => {
         const cx = cell.x;
@@ -53,70 +136,105 @@
 
         let count = 0;
 
-        [cx-1,cx,cx+1].forEach((x) => {
-            [cy-1,cy,cy+1].forEach((y) => {
-                if( !(cx===x && cy===y) && (isCell(x, y, true)) )
+        [cx - 1, cx, cx + 1].forEach((x) => {
+            [cy - 1, cy, cy + 1].forEach((y) => {
+                if (!(cx === x && cy === y) && (cells.exists(x, y) && cells.get(x, y).alive))
                     count++;
             });
         });
-        
+
         return count;
     }
-   
+
     const drawCells = () => {
         // draw
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        cells.forEach((cell) => {
+        cells.values().forEach((cell) => {
             ctx.fillStyle = cell.alive ? '#000' : '#eee';
-            ctx.fillRect(cell.x*cellSize, cell.y*cellSize, cellSize-2, cellSize-2);
+            ctx.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize - 2, cellSize - 2);
         });
     }
 
+    let fps = 0;
+    let timestampSecond = (new Date).getSeconds();
+
     setInterval(() => {
+        // debugs
+        document.getElementById('cellsSize').innerHTML = cells.size();
 
-        drawCells();        
+        if(timestampSecond === (new Date).getSeconds()) {
+             ++fps;
+        } else {
+            document.getElementById('fps').innerHTML = fps;
+            fps = 0;
+            timestampSecond = (new Date).getSeconds();
+        }
+        
 
-        if(!running) {
+        // redraws
+        drawCells();
+
+
+
+        if (!running) {
             return;
         }
 
-        cells.forEach((cell) => addDeadCells(cell));
-        cells = cells.filter((cell) => {
-            return cell.alive || !(!cell.alive && getNeighbourCellsCount(cell) === 0);
-        });
+        cells.addDeadCells();
 
         // resolve transitions
-        const transitions = cells.map((cell) => {
+        const transitions = cells.values().map((cell) => {
             const n = getNeighbourCellsCount(cell)
 
             return cell.alive ?
                 [!(n < 2 || n > 3), cell] :
-                [n === 3, cell]
-                ;
+                [n === 3, cell];
         });
 
         // apply transitions
         transitions.forEach((transition) => transition[1].alive = transition[0]);
 
-    }, 1000 / fps);
+    }, 1000 / fpsMax);
+
+    let drawingMode = false;
 
     document.getElementById("canvas").addEventListener("mousedown", (ev) => {
-        if(running) { // drawing mode disabled when simulation is running
+        drawingMode = true;
+    });
+    document.getElementById("canvas").addEventListener("mouseup", (ev) => {
+        drawingMode = false;
+    });
+
+
+    document.getElementById("canvas").addEventListener("mousemove", (ev) => {
+        if (!drawingMode || running) { // drawing mode disabled when simulation is running
             return;
         }
 
-        var canvas = document.getElementById("canvas");
+        let canvas = document.getElementById("canvas");
 
-        var x = Math.floor( (event.x - canvas.offsetLeft) / cellSize );
-        var y = Math.floor( (event.y - canvas.offsetTop) / cellSize );
+        let x = Math.floor((event.x - canvas.offsetLeft) / cellSize);
+        let y = Math.floor((event.y - canvas.offsetTop) / cellSize);
 
-        const cell = new Cell(x,y);
-        cells.push(cell);
-        
-        ctx.fillStyle = cell.alive ? '#000' : '#eee';
-        ctx.fillRect(cell.x*cellSize, cell.y*cellSize, cellSize-2, cellSize-2);
+        if(cells.exists(x,y)) {
+            cells.remove(x,y);
+        }
+
+        cells.add(x,y);
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize - 2, cellSize - 2);
     });
 
+
+    const randomlyFillCanvasWithCells = function() {
+        cells.reset();
+
+        for(let x = 0; x <= canvas.width / cellSize; x++)
+            for(let y = 0; y <= canvas.height / cellSize; y++)
+                if(!!(Math.floor((Math.random()*10))%2))
+                    cells.add(x,y);
+    }
 
 </script>
 </body>
