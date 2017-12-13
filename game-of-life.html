@@ -9,17 +9,20 @@
 <button onclick="running=true">start</button>
 <button onclick="running=false">stop</button>
 <button onclick="randomlyFillCanvasWithCells()">random fill</button>
+<button onclick="fillWholeCanvasWithCells()">full fill</button>
 
-<i>Cells: </i><small id="cellsSize">0</small>
-<i>FPS: </i><small id="fps">0</small>
+<i>Cells: </i><small id="cellsSize">0</small> |
+<i>FPS: </i><small id="fps">0</small> |
+
+<i>CellSize: </i><input type="number" value="8" id="cellSize" size="4" />
 </div>
 <br />
 <canvas id="canvas" width="1600" height="900" style="border: solid 1px black;"></canvas>
 <script type="text/javascript">
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const cellSize = 7;
-    const fpsMax = 40;
+    let cellSize = 8;
+    let fpsMax = 40;
     let running = false;
     let boundaryReserve = 10;
 
@@ -169,7 +172,8 @@
             fps = 0;
             timestampSecond = (new Date).getSeconds();
         }
-        
+
+        updateCellSize();
 
         // redraws
         drawCells();
@@ -205,6 +209,17 @@
         drawingMode = false;
     });
 
+    const updateCellSize = () => {
+        cellSize = document.getElementById("cellSize").value*1;
+        if(cellSize < 4) {
+            cellSize = document.getElementById("cellSize").value = 4;
+        }
+
+        if(cellSize > 30) {
+            cellSize = document.getElementById("cellSize").value = 30;
+        }
+    };
+
 
     document.getElementById("canvas").addEventListener("mousemove", (ev) => {
         if (!drawingMode || running) { // drawing mode disabled when simulation is running
@@ -234,6 +249,14 @@
             for(let y = 0; y <= canvas.height / cellSize; y++)
                 if(!!(Math.floor((Math.random()*10))%2))
                     cells.add(x,y);
+    }
+
+    const fillWholeCanvasWithCells = function() {
+        cells.reset();
+
+        for(let x = 0; x <= canvas.width / cellSize; x++)
+            for(let y = 0; y <= canvas.height / cellSize; y++)
+                cells.add(x,y);
     }
 
 </script>
